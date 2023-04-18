@@ -1,22 +1,40 @@
 import server from "./server";
 import { secp256k1 } from "ethereum-cryptography/secp256k1";
-import { toHex } from "ethereum-cryptography/utils";
+import { keccak256 } from "ethereum-cryptography/keccak";
+import { toHex, utf8ToBytes } from "ethereum-cryptography/utils";
 
-function Wallet({ address, setAddress, balance, setBalance, privateKey, setPrivateKey }) {
+function getAddress(publicKey) {
+  const hashed = keccak256(publicKey.slice(1));
+  return toHex(hashed.slice(hashed.length - 20));
+}
+
+function Wallet({
+  address,
+  setAddress,
+  balance,
+  setBalance,
+  privateKey,
+  setPrivateKey,
+  setNonce,
+}) {
   async function onChange(evt) {
     setPrivateKey(evt.target.value);
-    try{
-      const address = toHex(secp256k1.getPublicKey(evt.target.value));
+    try {
+      if (!secp256k1.utils.isValidPrivateKey(evt.target.value)) {
+        return;
+      }
+      const address = secp256k1.getPublicKey(evt.target.value);
       if (address) {
         setAddress(address);
         const {
-          data: { balance },
-        } = await server.get(`balance/${address}`);
+          data: { balance, nonce },
+        } = await server.get(`balance/${toHex(address)}`);
         setBalance(balance);
+        setNonce(nonce);
       } else {
         setBalance(0);
       }
-    }catch(e){
+    } catch (e) {
       console.error(`Invalid private key (${e.message})`);
     }
   }
@@ -34,7 +52,11 @@ function Wallet({ address, setAddress, balance, setBalance, privateKey, setPriva
         ></input>
       </label>
 
-      <div className="balance">Balance at {address}: {balance}</div>
+      <div className="balance">
+        Your address is: {address ? toHex(address) : 'none'}
+      </div>
+
+      <div className="balance">Balance: {balance}</div>
     </div>
   );
 }

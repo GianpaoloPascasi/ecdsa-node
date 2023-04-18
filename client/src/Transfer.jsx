@@ -1,7 +1,8 @@
 import { useState } from "react";
 import server from "./server";
+import { createTransaction } from "./utils/createTransaction";
 
-function Transfer({ address, setBalance }) {
+function Transfer({ address, setBalance, privateKey, nonce, setNonce }) {
   const [sendAmount, setSendAmount] = useState("");
   const [recipient, setRecipient] = useState("");
 
@@ -11,16 +12,21 @@ function Transfer({ address, setBalance }) {
     evt.preventDefault();
 
     try {
-      const {
-        data: { balance },
-      } = await server.post(`send`, {
-        sender: address,
-        amount: parseInt(sendAmount),
+      const payload = await createTransaction(
+        sendAmount,
+        address,
         recipient,
-      });
+        privateKey,
+        nonce
+      );
+      const {
+        data: { balance, nonce: nextNonce },
+      } = await server.post(`send`, payload);
       setBalance(balance);
+      setNonce(nextNonce);
     } catch (ex) {
-      alert(ex.response.data.message);
+      alert(ex.response?.data.message || ex.message);
+      setNonce(nonce + 1);
     }
   }
 
